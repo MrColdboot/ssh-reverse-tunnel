@@ -1,0 +1,191 @@
+#!/usr/bin/env bash
+## A script for deploying a temporary reverse SSH tunnel
+
+## Destination path to deploy the script
+DEPLOY_PATH=${DEPLOY_PATH:-$HOME/reverse-ssh}
+
+## Name of the script to deploy
+SCRIPT_NAME=${SCRIPT_NAME:-reverse-ssh}
+
+## A crontab timespec when to run the job
+CRON_TIMESPEC=${CRON_TIMESPEC:-~ * * * *}
+
+## Name of the `tmux` session to use. If this session exists, the reverse
+## shell is not started.
+SESSION_NAME=${SESSION_NAME:-reverse-ssh}
+
+## TCP port to transmit the SSH public key before attempting to connect
+KEY_XFER_PORT=${KEY_XFER_PORT:-40023}
+KEY_XFER_WAIT_TIME=${KEY_XFER_WAIT_TIME:-300}
+
+## Tunnel setup
+TUNNEL_REMOTE_PORT=${TUNNEL_REMOTE_PORT:-40022}
+TUNNEL_LOCAL_PORT=${TUNNEL_LOCAL_PORT:-22}
+
+## Outgoing SSH connection details
+REMOTE_USER=${REMOTE_USER:-root}
+REMOTE_HOST=${REMOTE_HOST:-localhost}
+REMOTE_PORT=${REMOTE_PORT:-22}
+
+TMUX=$(which tmux)
+CRONTAB=$(which crontab)
+SSH=$(which ssh)
+
+
+## Gather facts
+confirmed=0
+while [ $confirmed == 0 ]; do
+	
+	read -p "Enter the path to deploy the scripts to: [$DEPLOY_PATH] "
+	DEPLOY_PATH=`realpath -m "$(eval echo "${REPLY:-$DEPLOY_PATH}")"`
+
+	read -p "Enter the cron timespec: [$CRON_TIMESPEC] "
+	CRON_TIMESPEC=${REPLY:-$CRON_TIMESPEC}
+
+	read -p "Enter the remote user: [$REMOTE_USER] "
+	REMOTE_USER=${REPLY:-$REMOTE_USER}
+	read -p "Enter the remote host: [$REMOTE_HOST] "
+	REMOTE_HOST=${REPLY:-$REMOTE_HOST}
+	read -p "Enter the remote port: [$REMOTE_PORT] "
+	REMOTE_PORT=${REPLY:-$REMOTE_PORT}
+
+	read -p "Enter the tunnel source (remote) port: [$TUNNEL_REMOTE_PORT] "
+	TUNNEL_REMOTE_PORT=${REPLY:-$TUNNEL_REMOTE_PORT}
+	read -p "Enter the tunnel destination (local) port: [$TUNNEL_LOCAL_PORT] "
+	TUNNEL_LOCAL_PORT=${REPLY:-$TUNNEL_LOCAL_PORT}
+
+	read -p "Enter the key transfer port: [$KEY_XFER_PORT] "
+	KEY_XFER_PORT=${REPLY:-$KEY_XFER_PORT}
+	read -p "Enter the key transfer wait time: [$KEY_XFER_WAIT_TIME] "
+	KEY_XFER_WAIT_TIME=${REPLY:-$KEY_XFER_WAIT_TIME}
+
+	read -p "Enter the key filter command: [$KEY_FILTER_CMD] "
+	KEY_FILTER_CMD=${REPLY:-$KEY_FILTER_CMD}
+
+	answered=0
+	while [ $answered == 0 ]; do
+		echo
+		echo "Current Settings"
+		echo "----------------"
+		cat <<- EOT | column -t -s '#'
+			DEPLOY_PATH:#"$DEPLOY_PATH"
+			CRON_TIMESPEC:#"$CRON_TIMESPEC"
+			REMOTE_USER:#"$REMOTE_USER"
+			REMOTE_HOST:#"$REMOTE_HOST"
+			REMOTE_PORT:#"$REMOTE_PORT"
+			TUNNEL_REMOTE_PORT:#"$TUNNEL_REMOTE_PORT"
+			TUNNEL_LOCAL_PORT:#"$TUNNEL_LOCAL_PORT"
+			KEY_XFER_PORT:#"$KEY_XFER_PORT"
+			KEY_XFER_WAIT_TIME:#"$KEY_XFER_WAIT_TIME seconds"
+			KEY_FILTER_CMD:#"$KEY_FILTER_CMD"
+			EOT
+		echo
+		read -p "Does this look okay? (y/N): "
+		case $REPLY in
+		[Yy])
+			confirmed=1
+			answered=1
+			;;
+		[Nn])
+			answered=1
+			;;
+		*)
+			echo "Please enter 'y' or 'n'"
+			echo
+			;;
+		esac
+	done
+done
+
+## Create a temporary working directory
+TMPDIR=`mktemp -d`
+trap "rm -Rf $TMPDIR" EXIT
+
+## Generate SSH key-pair
+mkdir -p "$TMPDIR/out/ssh"
+ssh-keygen -t rsa -b 3072 -f "$TMPDIR/out/ssh/id_rsa" -q -N "" -C "$SCRIPT_NAME"
+
+## Generate script
+cat <<EOT >"$TMPDIR/out/$SCRIPT_NAME"
+#!/bin/sh
+run() {
+	if tmux has-session -t $SESSION_NAME 2>/dev/null; then
+		exit
+	else
+		/bin/sh -c "(${KEY_FILTER_CMD:-cat}) <'$DEPLOY_PATH/ssh/id_rsa.pub' | nc $REMOTE_HOST $KEY_XFER_PORT" || exit
+		tmux new-session -d -s $SESSION_NAME "\\
+		sleep $KEY_XFER_WAIT_TIME; \\
+		ssh -R $TUNNEL_REMOTE_PORT:localhost:$TUNNEL_LOCAL_PORT \\
+			-i '$DEPLOY_PATH/ssh/id_rsa' \\
+			-p $REMOTE_PORT \\
+			-o StrictHostKeyChecking=no \\
+			-o UserKnownHostsFile=/dev/null \\
+			$REMOTE_USER@$REMOTE_HOST"
+	fi
+}
+
+uninstall() {
+	if [ \$USER != $USER ]; then
+		echo "The uninstall function must be run as user '$USER'" >&2
+		exit 1
+	fi
+	TMPFILE=\$(mktemp)
+	trap "rm -f \$TMPFILE" EXIT
+	(crontab -l 2>/dev/null | awk "/$SCRIPT_NAME/{next}{print \\\$0}" >\$TMPFILE) || exit 1
+	crontab \$TMPFILE
+	rm -Rf "$(realpath "$DEPLOY_PATH")"
+	echo "Uninstall complete!"
+}
+
+case \$1 in
+uninstall)
+	uninstall
+	;;
+*)
+	run
+	;;
+esac
+EOT
+chmod +x "$TMPDIR/out/$SCRIPT_NAME"
+
+## Create crontab
+crontab -l 2>/dev/null | awk "/$SCRIPT_NAME/{next}{print \$0}" >$TMPDIR/crontab
+echo "$CRON_TIMESPEC \"$DEPLOY_PATH/$SCRIPT_NAME\"" >>$TMPDIR/crontab
+crontab -T $TMPDIR/crontab 2>/dev/null || exit 1
+
+## Install the script and key
+mkdir -p "$DEPLOY_PATH"
+cp -r $TMPDIR/out/* "$DEPLOY_PATH" || exit 1
+
+## Install crontab
+crontab $TMPDIR/crontab || exit 1
+
+## Display summary
+cat <<EOT | tee summary.out
+================================================================================
+ Summary
+================================================================================
+Every:
+    $CRON_TIMESPEC
+As user:
+    $USER ($UID)
+Start a tmux session:
+    $SESSION_NAME
+And transfer key:
+    $(ssh-keygen -l -f $TMPDIR/out/ssh/id_rsa -E md5)
+    $(ssh-keygen -l -f $TMPDIR/out/ssh/id_rsa -E sha256)
+Using filter command:
+    ${KEY_FILTER_CMD:-[None]}
+To remote port:
+    $KEY_XFER_PORT
+Then wait:
+    $KEY_XFER_WAIT_TIME seconds
+Before connecting to:
+    $REMOTE_USER@$REMOTE_HOST:$REMOTE_PORT
+And forwarding ports [remote:local]:
+    $TUNNEL_REMOTE_PORT:$TUNNEL_LOCAL_PORT
+================================================================================
+ To uninstall, run:
+    '$DEPLOY_PATH/$SCRIPT_NAME uninstall'
+================================================================================
+EOT
