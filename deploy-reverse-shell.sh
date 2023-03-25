@@ -162,8 +162,15 @@ crontab $TMPDIR/crontab || exit 1
 
 ## Display summary
 cat <<EOT | tee summary.out
+
 ================================================================================
  Summary
+================================================================================
+   Date: $(date)
+   Name: $SCRIPT_NAME
+   User: $USER ($UID)
+   Host: $(cat /etc/hostname)
+   Path: $DEPLOY_PATH
 ================================================================================
 Every:
     $CRON_TIMESPEC
@@ -187,5 +194,9 @@ And forwarding ports [remote:local]:
 ================================================================================
  To uninstall, run:
     '$DEPLOY_PATH/$SCRIPT_NAME uninstall'
+================================================================================
+  * Verify the cron service is running!
+  * Verify the ssh service is running!
+  * Verify the system has internet access!
 ================================================================================
 EOT
