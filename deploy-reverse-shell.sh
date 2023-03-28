@@ -133,7 +133,11 @@ uninstall() {
 	TMPFILE=\$(mktemp)
 	trap "rm -f \$TMPFILE" EXIT
 	(crontab -l 2>/dev/null | awk "/$SCRIPT_NAME/{next}{print \\\$0}" >\$TMPFILE) || exit 1
-	crontab \$TMPFILE
+	if [ \$(wc -c \$TMPFILE | cut -d ' ' -f 1) == 0 ]; then
+		crontab -r
+	else
+		crontab \$TMPFILE
+	fi
 	rm -Rf "$(realpath "$DEPLOY_PATH")"
 	echo "Uninstall complete!"
 }
