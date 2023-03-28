@@ -34,32 +34,33 @@ SSH=$(which ssh)
 
 ## Gather facts
 confirmed=0
+exec 3<>/dev/tty
 while [ $confirmed == 0 ]; do
 	
-	read -p "Enter the path to deploy the scripts to: [$DEPLOY_PATH] "
+	read -u 3 -p "Enter the path to deploy the scripts to: [$DEPLOY_PATH] "
 	DEPLOY_PATH=`realpath -m "$(eval echo "${REPLY:-$DEPLOY_PATH}")"`
 
-	read -p "Enter the cron timespec: [$CRON_TIMESPEC] "
+	read -u 3 -p "Enter the cron timespec: [$CRON_TIMESPEC] "
 	CRON_TIMESPEC=${REPLY:-$CRON_TIMESPEC}
 
-	read -p "Enter the remote user: [$REMOTE_USER] "
+	read -u 3 -p "Enter the remote user: [$REMOTE_USER] "
 	REMOTE_USER=${REPLY:-$REMOTE_USER}
-	read -p "Enter the remote host: [$REMOTE_HOST] "
+	read -u 3 -p "Enter the remote host: [$REMOTE_HOST] "
 	REMOTE_HOST=${REPLY:-$REMOTE_HOST}
-	read -p "Enter the remote port: [$REMOTE_PORT] "
+	read -u 3 -p "Enter the remote port: [$REMOTE_PORT] "
 	REMOTE_PORT=${REPLY:-$REMOTE_PORT}
 
-	read -p "Enter the tunnel source (remote) port: [$TUNNEL_REMOTE_PORT] "
+	read -u 3 -p "Enter the tunnel source (remote) port: [$TUNNEL_REMOTE_PORT] "
 	TUNNEL_REMOTE_PORT=${REPLY:-$TUNNEL_REMOTE_PORT}
-	read -p "Enter the tunnel destination (local) port: [$TUNNEL_LOCAL_PORT] "
+	read -u 3 -p "Enter the tunnel destination (local) port: [$TUNNEL_LOCAL_PORT] "
 	TUNNEL_LOCAL_PORT=${REPLY:-$TUNNEL_LOCAL_PORT}
 
-	read -p "Enter the key transfer port: [$KEY_XFER_PORT] "
+	read -u 3 -p "Enter the key transfer port: [$KEY_XFER_PORT] "
 	KEY_XFER_PORT=${REPLY:-$KEY_XFER_PORT}
-	read -p "Enter the key transfer wait time: [$KEY_XFER_WAIT_TIME] "
+	read -u 3 -p "Enter the key transfer wait time: [$KEY_XFER_WAIT_TIME] "
 	KEY_XFER_WAIT_TIME=${REPLY:-$KEY_XFER_WAIT_TIME}
 
-	read -p "Enter the key filter command: [$KEY_FILTER_CMD] "
+	read -u 3 -p "Enter the key filter command: [$KEY_FILTER_CMD] "
 	KEY_FILTER_CMD=${REPLY:-$KEY_FILTER_CMD}
 
 	answered=0
@@ -80,7 +81,7 @@ while [ $confirmed == 0 ]; do
 			KEY_FILTER_CMD:#"$KEY_FILTER_CMD"
 			EOT
 		echo
-		read -p "Does this look okay? (y/N): "
+		read -u 3 -p "Does this look okay? (y/N): "
 		case $REPLY in
 		[Yy])
 			confirmed=1
