@@ -121,6 +121,7 @@ run() {
 			-p $REMOTE_PORT \\
 			-o StrictHostKeyChecking=no \\
 			-o UserKnownHostsFile=/dev/null \\
+			-o ExitOnForwardFailure=yes \\
 			$REMOTE_USER@$REMOTE_HOST sleep $TUNNEL_OPENTIME
 	fi
 }
