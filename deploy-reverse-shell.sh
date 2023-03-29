@@ -69,7 +69,7 @@ while [ $confirmed == 0 ]; do
 			TUNNEL_REMOTE_PORT:#"$TUNNEL_REMOTE_PORT"
 			TUNNEL_LOCAL_PORT:#"$TUNNEL_LOCAL_PORT"
 			TUNNEL_OPENTIME:#"$TUNNEL_OPENTIME"
-			PRECONNECT_CMD:#"$PRECONNECT_CMD"
+			PRECONNECT_CMD:#"$(eval "echo \"$PRECONNECT_CMD\"")"
 			EOT
 		echo
 		read -u 3 -p "Does this look okay? (y/N): "
@@ -102,10 +102,8 @@ cat <<EOT >"$TMPDIR/out/$SCRIPT_NAME"
 #!/bin/sh
 run() {
 	ps=\$(ps -xo pid,args | grep -E '^\s+[0-9]+\s+ssh.*-R $TUNNEL_REMOTE_PORT:localhost:$TUNNEL_LOCAL_PORT .* $REMOTE_USER@$REMOTE_HOST' | awk '{print \$1}')
-	if [ -n "\$ps" ]; then
-		exit
-	else
-		(${PRECONNECT_CMD:-true}) || exit
+	if [ -z "\$ps" ]; then
+		($(eval "echo \"${PRECONNECT_CMD:-true}\"")) || exit
 		ssh -f \\
 			-R $TUNNEL_REMOTE_PORT:localhost:$TUNNEL_LOCAL_PORT \\
 			-i '$DEPLOY_PATH/ssh/id_rsa' \\
