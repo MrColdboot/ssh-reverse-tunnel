@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 ## A script for deploying a temporary reverse SSH tunnel
 
 ## Destination path to deploy the script
