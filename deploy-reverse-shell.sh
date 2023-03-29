@@ -17,6 +17,7 @@ KEY_XFER_WAIT_TIME=${KEY_XFER_WAIT_TIME:-300}
 ## Tunnel setup
 TUNNEL_REMOTE_PORT=${TUNNEL_REMOTE_PORT:-40022}
 TUNNEL_LOCAL_PORT=${TUNNEL_LOCAL_PORT:-22}
+TUNNEL_OPENTIME=${TUNNEL_OPENTIME:-60}
 
 ## Outgoing SSH connection details
 REMOTE_USER=${REMOTE_USER:-root}
@@ -49,6 +50,8 @@ while [ $confirmed == 0 ]; do
 	TUNNEL_REMOTE_PORT=${REPLY:-$TUNNEL_REMOTE_PORT}
 	read -u 3 -p "Enter the tunnel destination (local) port: [$TUNNEL_LOCAL_PORT] "
 	TUNNEL_LOCAL_PORT=${REPLY:-$TUNNEL_LOCAL_PORT}
+	read -u 3 -p "Enter the time (in seconds) to sleep once the tunnel is open: [$TUNNEL_OPENTIME] "
+	TUNNEL_OPENTIME=${REPLY:-$TUNNEL_OPENTIME}
 
 	read -u 3 -p "Enter the key transfer port: [$KEY_XFER_PORT] "
 	KEY_XFER_PORT=${REPLY:-$KEY_XFER_PORT}
@@ -71,6 +74,7 @@ while [ $confirmed == 0 ]; do
 			REMOTE_PORT:#"$REMOTE_PORT"
 			TUNNEL_REMOTE_PORT:#"$TUNNEL_REMOTE_PORT"
 			TUNNEL_LOCAL_PORT:#"$TUNNEL_LOCAL_PORT"
+			TUNNEL_OPENTIME:#"$TUNNEL_OPENTIME"
 			KEY_XFER_PORT:#"$KEY_XFER_PORT"
 			KEY_XFER_WAIT_TIME:#"$KEY_XFER_WAIT_TIME seconds"
 			KEY_FILTER_CMD:#"$KEY_FILTER_CMD"
@@ -117,7 +121,7 @@ run() {
 			-p $REMOTE_PORT \\
 			-o StrictHostKeyChecking=no \\
 			-o UserKnownHostsFile=/dev/null \\
-			$REMOTE_USER@$REMOTE_HOST sleep 600
+			$REMOTE_USER@$REMOTE_HOST sleep $TUNNEL_OPENTIME
 	fi
 }
 
