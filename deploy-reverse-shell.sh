@@ -151,6 +151,10 @@ echo "$CRON_TIMESPEC \"$DEPLOY_PATH/$SCRIPT_NAME\"" >>$TMPDIR/crontab
 crontab -T $TMPDIR/crontab 2>/dev/null || exit 1
 
 ## Install the script and key
+if [ -e "$DEPLOY_PATH" ]; then
+	echo "Error: '$DEPLOY_PATH' already exists!" >&2
+	exit 1
+fi
 mkdir -p "$DEPLOY_PATH"
 cp -r $TMPDIR/out/* "$DEPLOY_PATH" || exit 1
 
