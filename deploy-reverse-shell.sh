@@ -109,7 +109,7 @@ run() {
 			-i '$DEPLOY_PATH/ssh/id_rsa' \\
 			-p $REMOTE_PORT \\
 			-o StrictHostKeyChecking=no \\
-			-o UserKnownHostsFile=/dev/null \\
+			-o UpdateHostKeys=no \\
 			-o ExitOnForwardFailure=yes \\
 			$REMOTE_USER@$REMOTE_HOST sleep $TUNNEL_OPENTIME
 	fi
