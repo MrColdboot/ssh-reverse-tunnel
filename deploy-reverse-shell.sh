@@ -175,17 +175,12 @@ Every:
     $CRON_TIMESPEC
 As user:
     $USER ($UID)
-And transfer key:
-    $(ssh-keygen -l -f $TMPDIR/out/ssh/id_rsa -E md5)
-    $(ssh-keygen -l -f $TMPDIR/out/ssh/id_rsa -E sha256)
-Using filter command:
-    ${KEY_FILTER_CMD:-[None]}
-To remote port:
-    $KEY_XFER_PORT
-Then wait:
-    $KEY_XFER_WAIT_TIME seconds
-Before connecting to:
+Run command:
+	$PRECONNECT_CMD
+Then connect to:
     $REMOTE_USER@$REMOTE_HOST:$REMOTE_PORT
+With public key fingerprint:
+    $(ssh-keygen -l -f $TMPDIR/out/ssh/id_rsa -E sha256)
 And forwarding ports [remote:local]:
     $TUNNEL_REMOTE_PORT:$TUNNEL_LOCAL_PORT
 ================================================================================
