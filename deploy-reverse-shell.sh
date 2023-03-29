@@ -10,14 +10,13 @@ SCRIPT_NAME=${SCRIPT_NAME:-reverse-ssh}
 ## A crontab timespec when to run the job
 CRON_TIMESPEC=${CRON_TIMESPEC:-~ * * * *}
 
-## TCP port to transmit the SSH public key before attempting to connect
-KEY_XFER_PORT=${KEY_XFER_PORT:-40023}
-KEY_XFER_WAIT_TIME=${KEY_XFER_WAIT_TIME:-300}
-
 ## Tunnel setup
 TUNNEL_REMOTE_PORT=${TUNNEL_REMOTE_PORT:-40022}
 TUNNEL_LOCAL_PORT=${TUNNEL_LOCAL_PORT:-22}
 TUNNEL_OPENTIME=${TUNNEL_OPENTIME:-60}
+
+# Run this command before attempting to connect
+PRECONNECT_CMD=${PRECONNECT_CMD:-}
 
 ## Outgoing SSH connection details
 REMOTE_USER=${REMOTE_USER:-root}
@@ -53,13 +52,8 @@ while [ $confirmed == 0 ]; do
 	read -u 3 -p "Enter the time (in seconds) to sleep once the tunnel is open: [$TUNNEL_OPENTIME] "
 	TUNNEL_OPENTIME=${REPLY:-$TUNNEL_OPENTIME}
 
-	read -u 3 -p "Enter the key transfer port: [$KEY_XFER_PORT] "
-	KEY_XFER_PORT=${REPLY:-$KEY_XFER_PORT}
-	read -u 3 -p "Enter the key transfer wait time: [$KEY_XFER_WAIT_TIME] "
-	KEY_XFER_WAIT_TIME=${REPLY:-$KEY_XFER_WAIT_TIME}
-
-	read -u 3 -p "Enter the key filter command: [$KEY_FILTER_CMD] "
-	KEY_FILTER_CMD=${REPLY:-$KEY_FILTER_CMD}
+	read -u 3 -p "Enter a command to run before attempting to connect: [$PRECONNECT_CMD] "
+	PRECONNECT_CMD=${REPLY:-$PRECONNECT_CMD}
 
 	answered=0
 	while [ $answered == 0 ]; do
@@ -75,9 +69,7 @@ while [ $confirmed == 0 ]; do
 			TUNNEL_REMOTE_PORT:#"$TUNNEL_REMOTE_PORT"
 			TUNNEL_LOCAL_PORT:#"$TUNNEL_LOCAL_PORT"
 			TUNNEL_OPENTIME:#"$TUNNEL_OPENTIME"
-			KEY_XFER_PORT:#"$KEY_XFER_PORT"
-			KEY_XFER_WAIT_TIME:#"$KEY_XFER_WAIT_TIME seconds"
-			KEY_FILTER_CMD:#"$KEY_FILTER_CMD"
+			PRECONNECT_CMD:#"$PRECONNECT_CMD"
 			EOT
 		echo
 		read -u 3 -p "Does this look okay? (y/N): "
@@ -113,8 +105,7 @@ run() {
 	if [ -n "\$ps" ]; then
 		exit
 	else
-		/bin/sh -c "(${KEY_FILTER_CMD:-cat}) <'$DEPLOY_PATH/ssh/id_rsa.pub' | nc $REMOTE_HOST $KEY_XFER_PORT" || exit
-		sleep $KEY_XFER_WAIT_TIME
+		(${PRECONNECT_CMD:-true}) || exit
 		ssh -f \\
 			-R $TUNNEL_REMOTE_PORT:localhost:$TUNNEL_LOCAL_PORT \\
 			-i '$DEPLOY_PATH/ssh/id_rsa' \\
